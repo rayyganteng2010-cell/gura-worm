@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WormGPT Style • Cek NIK (New Result UI)</title>
+  <style>
+    :root{
+      --bg:#07070a;
+      --text:#e9e9ee;
+      --muted:#a5a5b5;
+      --red:#ff2b2b;
+      --line:rgba(255,43,43,.22);
+      --glow: 0 0 24px rgba(255,43,43,.35);
+      --shadow: 0 18px 50px rgba(0,0,0,.6);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color:var(--text);
+      background:
+        radial-gradient(900px 520px at 18% 0%, rgba(255,43,43,.16), transparent 60%),
+        radial-gradient(900px 520px at 82% 10%, rgba(255,43,43,.10), transparent 58%),
+        radial-gradient(900px 640px at 50% 100%, rgba(255,43,43,.08), transparent 58%),
+        var(--bg);
+      min-height:100vh;
+      overflow-x:hidden;
+    }
+    body::before{
+      content:"";
+      position:fixed; inset:0;
+      pointer-events:none;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.03),
+        rgba(255,255,255,0.03) 1px,
+        transparent 1px,
+        transparent 4px
+      );
+      opacity:.18;
+      mix-blend-mode:overlay;
+    }
+
+    .app{max-width:980px; margin:0 auto; padding:14px 14px 26px;}
+
+    /* TOP BAR */
+    .topbar{
+      position: sticky; top: 10px; z-index: 50;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding: 12px;
+      border: 1px solid rgba(255,43,43,.18);
+      background: rgba(10,10,14,.72);
+      backdrop-filter: blur(10px);
+      border-radius: 999px;
+      box-shadow: var(--shadow);
+    }
+    .left,.right{display:flex; align-items:center; gap:10px;}
+    .iconBtn{
+      width:42px; height:42px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+      color:var(--text);
+      display:grid; place-items:center;
+      cursor:pointer;
+    }
+    .brandPill{
+      display:flex; align-items:center; gap:10px;
+      padding: 10px 14px;
+      border-radius:999px;
+      border:1px solid rgba(255,43,43,.22);
+      background: linear-gradient(180deg, rgba(255,43,43,.10), rgba(255,255,255,.02));
+      box-shadow: var(--glow);
+      white-space:nowrap;
+    }
+    .recDot{
+      width:12px; height:12px; border-radius:999px;
+      background: var(--red);
+      box-shadow: 0 0 18px rgba(255,43,43,.85);
+    }
+    .brandTitle{font-weight:900}
+    .brandVer{opacity:.85; font-weight:800; margin-left:4px;}
+    .chev{opacity:.7; margin-left:6px; font-weight:900;}
+
+    /* CHAT PANEL */
+    .chat{
+      margin-top: 14px;
+      padding: 16px 10px 10px;
+      border-radius: 26px;
+      border: 1px solid rgba(255,43,43,.14);
+      background: rgba(8,8,11,.55);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+    .chat::after{
+      content:"";
+      position:absolute; inset:-2px;
+      pointer-events:none;
+      background: radial-gradient(540px 220px at 30% 0%, rgba(255,43,43,.16), transparent 65%);
+      filter: blur(14px);
+      opacity:.65;
+    }
+    .msgs{position:relative; z-index:1; padding: 6px 4px 110px;}
+    .msgRow{display:flex; gap:12px; margin:10px 0; align-items:flex-end;}
+    .msgRow.me{justify-content:flex-end}
+    .avatar{
+      width:40px; height:40px; border-radius:999px;
+      background: radial-gradient(circle at 30% 30%, rgba(255,43,43,.22), rgba(255,255,255,.03));
+      border: 1px solid rgba(255,43,43,.18);
+      box-shadow: 0 0 18px rgba(255,43,43,.18);
+      display:grid; place-items:center;
+      flex:0 0 auto;
+    }
+    .bubble{
+      max-width: 92%;
+      padding: 14px 14px;
+      border-radius: 18px;
+      background: rgba(12,12,16,.78);
+      border: 1px solid rgba(255,43,43,.22);
+      box-shadow: 0 12px 30px rgba(0,0,0,.45);
+    }
+    .msgRow.me .bubble{
+      background: rgba(255,43,43,.10);
+      border: 1px solid rgba(255,43,43,.35);
+      box-shadow: 0 12px 28px rgba(255,43,43,.10);
+    }
+    .title{font-weight:900; margin-bottom:6px; letter-spacing:.2px; color:#ffd2d2;}
+    p{margin:0; color: rgba(233,233,238,.92); line-height:1.5; font-size:14px}
+    .time{margin-top:8px; font-size:12px; color: rgba(233,233,238,.55);}
+
+    /* INPUT */
+    .inputBar{
+      position:absolute; left:0; right:0; bottom:0;
+      padding: 12px;
+      background: linear-gradient(180deg, transparent, rgba(7,7,10,.92) 30%, rgba(7,7,10,.98));
+      z-index: 3;
+    }
+    .inputWrap{
+      display:flex; gap:10px; align-items:center;
+      padding: 12px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,43,43,.18);
+      background: rgba(10,10,14,.80);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+    }
+    .textInput{
+      flex:1; border:none; outline:none;
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      letter-spacing:.4px;
+    }
+    .sendBtn{
+      width:46px; height:46px;
+      border-radius:999px;
+      border:none; cursor:pointer;
+      background: radial-gradient(circle at 30% 30%, rgba(255,43,43,1), rgba(255,43,43,.55));
+      box-shadow: 0 16px 34px rgba(255,43,43,.18), 0 0 26px rgba(255,43,43,.22);
+      display:grid; place-items:center;
+    }
+
+    /* ===== NEW RESULT STYLE (ANTI VERTIKAL) ===== */
+    .resultWrap{margin-top:12px;}
+    .chips{display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 6px;}
+    .chip{
+      display:inline-flex; gap:8px; align-items:center;
+      padding: 6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,43,43,.22);
+      background:rgba(255,43,43,.08);
+      color:#ffd0d0;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .sections{
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap:12px;
+      margin-top:10px;
+    }
+    .section{
+      grid-column: span 6;
+      border-radius: 18px;
+      border:1px solid rgba(255,43,43,.18);
+      background: linear-gradient(180deg, rgba(255,43,43,.06), rgba(255,255,255,.02));
+      box-shadow: var(--shadow);
+      padding: 12px;
+      overflow:hidden;
+    }
+    .section h3{
+      margin:0 0 10px;
+      font-size:13px;
+      letter-spacing:.4px;
+      text-transform:uppercase;
+      color: rgba(255,210,210,.95);
+    }
+
+    .fields{display:flex; flex-direction:column; gap:10px;}
+    .field{
+      position:relative;
+      border-radius:16px;
+      padding: 12px 44px 12px 12px;
+      border:1px solid rgba(255,255,255,.06);
+      background: rgba(255,255,255,.02);
+    }
+    .label{
+      font-size:11px;
+      letter-spacing:.35px;
+      text-transform:uppercase;
+      color: rgba(233,233,238,.60);
+      margin-bottom:6px;
+    }
+    .value{
+      font-size:14px;
+      font-weight:900;
+      line-height:1.35;
+      color: rgba(233,233,238,.96);
+      white-space: normal;         /* ✅ */
+      word-break: break-word;      /* ✅ */
+      overflow-wrap: anywhere;     /* ✅ */
+      text-align:left;             /* ✅ */
+    }
+    .copyBtn{
+      position:absolute;
+      right:10px; top:10px;
+      width:34px; height:34px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+      color: rgba(233,233,238,.9);
+      cursor:pointer;
+      display:grid; place-items:center;
+    }
+    .copyBtn:hover{border-color: rgba(255,43,43,.22)}
+    .btnRow{display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px;}
+
+    .btn{
+      border:none; cursor:pointer;
+      padding: 9px 12px;
+      border-radius: 14px;
+      font-weight:900;
+      font-size:12px;
+      letter-spacing:.2px;
+      color:var(--text);
+      background: rgba(255,43,43,.14);
+      border: 1px solid rgba(255,43,43,.30);
+      box-shadow: 0 14px 28px rgba(255,43,43,.08);
+      text-decoration:none;
+      display:inline-flex; align-items:center; gap:8px;
+      user-select:none; white-space:nowrap;
+    }
+    .btn:hover{background: rgba(255,43,43,.20)}
+    .btn.primary{
+      background: linear-gradient(180deg, rgba(255,43,43,.95), rgba(255,43,43,.55));
+      border: 1px solid rgba(255,43,43,.55);
+    }
+    .btn.ghost{
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.08);
+      color: rgba(233,233,238,.78);
+      box-shadow:none;
+    }
+
+    .skeleton{
+      animation: pulse 1.1s ease-in-out infinite;
+      background:linear-gradient(90deg, rgba(255,255,255,.03), rgba(255,43,43,.10), rgba(255,255,255,.03));
+      background-size: 200% 100%;
+      border-radius:18px;
+      height: 180px;
+    }
+    @keyframes pulse{ 0%{background-position:0% 0%} 100%{background-position:200% 0%} }
+
+    .toast{
+      position:fixed; left:14px; bottom:14px;
+      background: rgba(10,10,14,.82);
+      border:1px solid rgba(255,43,43,.22);
+      color:var(--text);
+      padding: 10px 12px;
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      display:none;
+      z-index: 99;
+      max-width:min(560px, calc(100vw - 28px));
+      font-size:13px;
+    }
+    .toast.show{display:block}
+
+    @media (max-width: 900px){
+      .section{grid-column: span 12;}
+      .bubble{max-width: 96%;}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="left">
+        <button class="iconBtn" aria-label="Menu" title="Menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <div class="brandPill">
+          <span class="recDot"></span>
+          <span class="brandTitle">WormGPT <span class="brandVer">0.1 X</span></span>
+          <span class="chev">˅</span>
+        </div>
+      </div>
+
+      <div class="right">
+        <button class="iconBtn" aria-label="Edit" title="Edit">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 20h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="chat">
+      <div class="msgs">
+        <div class="msgRow">
+          <div class="avatar" title="Bot">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2l1.2 5.2L18 8.4l-4.3 2.6L12 16l-1.7-5L6 8.4l4.8-1.2L12 2Z"
+                    stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="bubble">
+            <div class="title">Cek NIK Parser</div>
+            <p></p>
+            <div class="time" id="tBot"></div>
+
+            <div class="resultWrap" id="resultWrap" style="display:none;">
+              <div class="chips">
+                <span class="chip" id="chipStatus">Status: -</span>
+                <span class="chip" id="chipNIK">NIK: -</span>
+              </div>
+
+              <div class="sections" id="sections"></div>
+
+              <div class="btnRow">
+                <button class="btn ghost" id="btnCopyJson">Copy JSON</button>
+                <button class="btn ghost" id="btnExportJson">Export JSON</button>
+                <button class="btn primary" id="btnMaskToggle">Toggle Mask NIK</button>
+              </div>
+            </div>
+
+            <div id="errBox" style="display:none; margin-top:12px; padding:12px; border:1px solid rgba(255,43,43,.25); border-radius:18px; background:rgba(255,43,43,.06);">
+              <div style="font-weight:900; margin-bottom:6px; color:#ffd2d2;">Error</div>
+              <div style="color:rgba(233,233,238,.78); line-height:1.5;" id="errText"></div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="msgRow me" id="userRow" style="display:none;">
+          <div class="bubble">
+            <p id="userText"></p>
+            <div class="time" id="tUser"></div>
+          </div>
+          <div class="avatar" title="You" style="border-color:rgba(255,255,255,.10); box-shadow:none;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M20 21a8 8 0 1 0-16 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="inputBar">
+        <div class="inputWrap">
+          <input id="nik" class="textInput" inputmode="numeric" maxlength="16" placeholder="Ketik NIK 16 digit..." autocomplete="off" />
+          <button id="btnSend" class="sendBtn" title="Cek" aria-label="Cek">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M22 2 11 13" stroke="white" stroke-width="2" stroke-linecap="round"/>
+              <path d="M22 2 15 22l-4-9-9-4 20-7Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script>
+    const API_BASE = "https://api.elrayyxml.web.id/api/tools/nikparse?nik=";
+
+    const elNik = document.getElementById("nik");
+    const btnSend = document.getElementById("btnSend");
+    const toast = document.getElementById("toast");
+
+    const userRow = document.getElementById("userRow");
+    const userText = document.getElementById("userText");
+    const tUser = document.getElementById("tUser");
+
+    const tBot = document.getElementById("tBot");
+    const resultWrap = document.getElementById("resultWrap");
+    const sections = document.getElementById("sections");
+    const errBox = document.getElementById("errBox");
+    const errText = document.getElementById("errText");
+
+    const chipStatus = document.getElementById("chipStatus");
+    const chipNIK = document.getElementById("chipNIK");
+
+    const btnCopyJson = document.getElementById("btnCopyJson");
+    const btnExportJson = document.getElementById("btnExportJson");
+    const btnMaskToggle = document.getElementById("btnMaskToggle");
+
+    let lastJson = null;
+    let maskOn = true;
+
+    function nowTime(){
+      const d = new Date();
+      return String(d.getHours()).padStart(2,"0") + "." + String(d.getMinutes()).padStart(2,"0");
+    }
+    tBot.textContent = nowTime();
+
+    function showToast(msg){
+      toast.textContent = msg;
+      toast.classList.add("show");
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(()=> toast.classList.remove("show"), 2600);
+    }
+    function onlyDigits(s){ return (s || "").replace(/\D/g, ""); }
+    function escapeHtml(s){
+      return (s ?? "").toString().replace(/[&<>"']/g, m => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[m]));
+    }
+
+    function maskNIK(nik){
+      if(!nik || nik.length < 8) return nik || "-";
+      return nik.slice(0,4) + "********" + nik.slice(-4);
+    }
+
+    function setUserBubble(nik){
+      userText.textContent = nik;
+      tUser.textContent = nowTime();
+      userRow.style.display = "";
+    }
+
+    function showError(msg){
+      errText.textContent = msg;
+      errBox.style.display = "";
+    }
+    function hideError(){
+      errBox.style.display = "none";
+      errText.textContent = "";
+    }
+
+    function skeleton(){
+      resultWrap.style.display = "";
+      hideError();
+      sections.innerHTML = `
+        <div class="skeleton" style="grid-column: span 12;"></div>
+        <div class="skeleton" style="grid-column: span 12;"></div>
+      `;
+    }
+
+    function field(label, value, copyValue){
+      const v = (value ?? "-").toString();
+      const cv = (copyValue ?? v).toString();
+      return `
+        <div class="field">
+          <div class="label">${escapeHtml(label)}</div>
+          <div class="value">${escapeHtml(v)}</div>
+          <button class="copyBtn" data-copy="${escapeHtml(cv)}" title="Copy">⧉</button>
+        </div>
+      `;
+    }
+
+    function renderResult(data){
+      lastJson = data;
+      resultWrap.style.display = "";
+      hideError();
+
+      const r = data.result || {};
+      const prov = r.provinsi || {};
+      const kota = r.kotakab || {};
+      const kec = r.kecamatan || {};
+      const t = r.tambahan || {};
+
+      const nikReal = r.nik || "";
+      const nikShown = maskOn ? maskNIK(nikReal) : nikReal;
+
+      chipStatus.textContent = `Status: ${data.status ? "OK" : "ERROR"}`;
+      chipNIK.textContent = `NIK: ${nikShown || "-"}`;
+
+      sections.innerHTML = `
+        <div class="section">
+          <h3>Identitas</h3>
+          <div class="fields">
+            ${field("NIK", nikShown, nikReal)}
+            ${field("Kelamin", r.kelamin)}
+            ${field("Lahir", r.lahir)}
+            ${field("Lahir Lengkap", r.lahir_lengkap)}
+            ${field("Kode Wilayah", r.kode_wilayah)}
+            ${field("Nomor Urut", r.nomor_urut)}
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Wilayah</h3>
+          <div class="fields">
+            ${field("Provinsi", `${prov.kode || "-"} • ${prov.nama || "-"}`, prov.nama || "")}
+            ${field("Kota/Kab", `${kota.kode || "-"} • ${kota.nama || "-"} (${kota.jenis || "-"})`, kota.nama || "")}
+            ${field("Kecamatan", `${kec.kode || "-"} • ${kec.nama || "-"}`, kec.nama || "")}
+          </div>
+        </div>
+
+        <div class="section" style="grid-column: span 12;">
+          <h3>Tambahan</h3>
+          <div class="fields">
+            ${field("Pasaran", t.pasaran)}
+            ${field("Zodiak", t.zodiak)}
+            ${field("Usia", t.usia)}
+            ${field("Kategori Usia", t.kategori_usia)}
+            ${field("Ultah", t.ultah)}
+          </div>
+        </div>
+      `;
+    }
+
+    async function copyText(text){
+      try{
+        await navigator.clipboard.writeText(text);
+        showToast("Copied ✅");
+      }catch{
+        showToast("Copy gagal ❌");
+      }
+    }
+
+    function exportJson(obj){
+      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "nikparse.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast("Export JSON ✅");
+    }
+
+    async function checkNIK(raw){
+      const nik = onlyDigits(raw).slice(0,16);
+      if(nik.length !== 16){
+        resultWrap.style.display = "none";
+        showError("NIK harus 16 digit.");
+        showToast("Input tidak valid");
+        return;
+      }
+
+      setUserBubble(nik);
+      skeleton();
+      showToast("Checking...");
+
+      try{
+        const res = await fetch(API_BASE + encodeURIComponent(nik));
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+
+        if(!data || data.status !== true || !data.result){
+          throw new Error("Respon API tidak sesuai / status false.");
+        }
+
+        renderResult(data);
+        showToast("Done ✅");
+      }catch(err){
+        console.error(err);
+        resultWrap.style.display = "none";
+        showError(err.message || String(err));
+        showToast("Gagal ❌");
+      }
+    }
+
+    // Events
+    btnSend.addEventListener("click", () => checkNIK(elNik.value));
+    elNik.addEventListener("keydown", (e) => { if(e.key === "Enter") checkNIK(elNik.value); });
+
+    // digits only
+    elNik.addEventListener("input", () => { elNik.value = onlyDigits(elNik.value).slice(0,16); });
+
+    // copy delegation
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-copy]");
+      if(!btn) return;
+      copyText(btn.getAttribute("data-copy") || "");
+    });
+
+    btnCopyJson.addEventListener("click", () => {
+      if(!lastJson) return showToast("Belum ada data");
+      copyText(JSON.stringify(lastJson, null, 2));
+    });
+    btnExportJson.addEventListener("click", () => {
+      if(!lastJson) return showToast("Belum ada data");
+      exportJson(lastJson);
+    });
+    btnMaskToggle.addEventListener("click", () => {
+      maskOn = !maskOn;
+      if(lastJson) renderResult(lastJson);
+      showToast(maskOn ? "Mask ON" : "Mask OFF");
+    });
+
+    // contoh (hapus kalau gak mau auto)
+    elNik.value = "3172020808770034";
+    checkNIK(elNik.value);
+  </script>
+</body>
+</html>
