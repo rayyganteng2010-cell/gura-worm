@@ -1,6 +1,6 @@
 // deepseek-handler.js
-const axios = require("axios");
-const Crypto = require("crypto");
+export const axios = require("axios");
+export const Crypto = require("crypto");
 
 // ==========================================
 // CONFIG GATE (SAMA PERSIS KAYA PUNYA LU)
