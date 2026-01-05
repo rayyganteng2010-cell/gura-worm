@@ -123,7 +123,7 @@ async function deepseekAI({ message, conversationId = null }) {
 
   try {
     const resp = await fetch("https://notegpt.io/api/v2/chat/stream", {
-      method: "POST",
+      method: "GET",
       headers: {
         "Content-Type": "application/json",
         "User-Agent": "ray-vercel-client",
@@ -227,7 +227,7 @@ export default async function handler(req) {
   }
 
   try {
-    if (req.method !== "POST") {
+    if (req.method !== " POST") {
       return new Response(
         JSON.stringify({ error: "Method not allowed" }), 
         {
