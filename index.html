@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>RAY-GPT TERMINAL // TEXT ONLY</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* === CORE VARIABLES === */
+    :root {
+      --bg: #050505;
+      --panel: rgba(12, 12, 14, 0.95);
+      --primary: #00ff41; /* Matrix Green */
+      --accent: #00d9ff; /* Cyber Blue */
+      --secondary: #ff003c; /* Red */
+      --warning: #ffee00;
+      --text: #e0e0e0;
+      --border: rgba(255, 255, 255, 0.1);
+      --font-ui: 'Rajdhani', sans-serif;
+      --font-code: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; outline: none; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      height: 100dvh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* === BACKGROUND ANIMATION === */
+    #matrixCanvas {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      opacity: 0.1; pointer-events: none; z-index: 0;
+    }
+
+    /* === LOGIN SCREEN === */
+    .login-wrapper {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #000;
+      display: flex; justify-content: center; align-items: center;
+      transition: opacity 0.5s ease;
+    }
+    .login-card {
+      width: 85%; max-width: 380px; padding: 30px;
+      background: rgba(10, 10, 10, 0.95);
+      border: 1px solid var(--primary);
+      box-shadow: 0 0 50px rgba(0, 255, 65, 0.1);
+      text-align: center; border-radius: 8px;
+    }
+    
+    .login-logo {
+        width: 100px; height: 100px; object-fit: cover; border-radius: 50%;
+        border: 2px solid var(--primary); box-shadow: 0 0 20px var(--primary);
+        margin-bottom: 20px;
+    }
+
+    .cyber-input {
+      width: 100%; background: #080808; border: 1px solid #333;
+      color: var(--primary); padding: 12px; font-family: var(--font-code);
+      text-align: center; margin-bottom: 15px; border-radius: 4px;
+    }
+    .cyber-btn {
+      width: 100%; background: var(--primary); color: #000; border: none;
+      padding: 12px; font-weight: 800; cursor: pointer; border-radius: 4px;
+      font-family: var(--font-code); letter-spacing: 1px;
+      transition: 0.3s;
+    }
+    .cyber-btn:hover { box-shadow: 0 0 15px var(--primary); transform: translateY(-2px); }
+    
+    .login-error { 
+        color: var(--secondary); font-size: 12px; margin-top: 15px; 
+        font-family: var(--font-code); display: none; border: 1px dashed var(--secondary); padding: 5px;
+    }
+
+    /* === APP CONTAINER === */
+    .app {
+      width: 100%; max-width: 650px; height: 100%;
+      background: var(--panel); display: flex; flex-direction: column;
+      border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+      position: relative; z-index: 10;
+    }
+
+    .header {
+      padding: 15px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(0,0,0,0.6);
+    }
+    .status-dot { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; display: inline-block; margin-right: 8px; box-shadow: 0 0 5px var(--primary); }
+
+    /* === CHAT MESSAGES === */
+    .chat-container {
+      flex: 1; overflow-y: auto; padding: 20px;
+      display: flex; flex-direction: column; gap: 15px;
+    }
+    .chat-container::-webkit-scrollbar { width: 4px; }
+    .chat-container::-webkit-scrollbar-thumb { background: #333; }
+
+    .msg { display: flex; gap: 10px; max-width: 100%; animation: fadeUp 0.3s ease; }
+    .msg.user { flex-direction: row-reverse; }
+    
+    .msg-content {
+      max-width: 95%; font-size: 14px; line-height: 1.5;
+      font-family: var(--font-ui); color: #ccc;
+    }
+    
+    .user .msg-content {
+        background: #0f0f0f; border: 1px solid #333; border-right: 2px solid var(--primary);
+        padding: 10px 15px; border-radius: 8px 0 8px 8px; color: #fff;
+        font-family: var(--font-code);
+    }
+    .bot .msg-content { width: 100%; }
+
+    /* === FORMATTER STYLES === */
+    .role-badge {
+        display: inline-block;
+        color: var(--accent);
+        font-family: var(--font-code);
+        font-weight: 800;
+        font-size: 15px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        text-shadow: 0 0 10px rgba(0, 217, 255, 0.4);
+    }
+    
+    .tag-blue { background: rgba(0, 217, 255, 0.1); color: var(--accent); padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid rgba(0, 217, 255, 0.3); }
+    
+    /* === CODE BLOCK STYLE === */
+    .code-wrapper {
+        margin: 15px 0;
+        background: #050505;
+        border: 1px solid #333;
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+    }
+    .code-header {
+        background: #111;
+        padding: 8px 12px;
+        border-bottom: 1px solid #333;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .code-lang { font-family: var(--font-code); font-size: 11px; color: #888; font-weight: bold; }
+    
+    .copy-btn-code {
+        background: rgba(0, 255, 65, 0.1); border: 1px solid var(--primary);
+        color: var(--primary); font-family: var(--font-code);
+        font-size: 11px; padding: 4px 10px; cursor: pointer;
+        border-radius: 4px; transition: 0.2s; font-weight: 800;
+    }
+    .copy-btn-code:hover { background: var(--primary); color: #000; box-shadow: 0 0 10px var(--primary); }
+    
+    pre { margin: 0; padding: 15px; overflow-x: auto; }
+    code { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #eee; }
+
+    /* === COMPOSER (TEXT ONLY) === */
+    .composer {
+      padding: 15px; border-top: 1px solid var(--border); background: #0a0a0c;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    
+    .input-group { display: flex; gap: 10px; align-items: flex-end; }
+    textarea {
+      flex: 1; background: #000; border: 1px solid #333; color: #fff;
+      padding: 10px; border-radius: 4px; resize: none; min-height: 45px;
+      font-family: var(--font-ui); font-size: 15px;
+    }
+    textarea:focus { border-color: var(--primary); }
+    
+    .send-btn {
+      width: 45px; height: 45px; background: var(--primary); border: none;
+      border-radius: 4px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+
+    /* TOAST (Notifikasi) */
+    .toast {
+        position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+        background: #000; color: var(--primary); padding: 10px 20px; 
+        border: 1px solid var(--primary); border-radius: 4px; 
+        font-family: var(--font-code); font-size: 12px; opacity: 0; pointer-events: none; transition: 0.3s;
+        z-index: 10000; box-shadow: 0 0 15px rgba(0,255,65,0.2);
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @keyframes fadeUp { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+
+  <canvas id="matrixCanvas"></canvas>
+  <div id="toast" class="toast">COPIED TO CLIPBOARD</div>
+
+  <div class="login-wrapper" id="loginWrapper">
+    <div class="login-card">
+        <img src="https://files.catbox.moe/wz83g1.jpg" class="login-logo" alt="logo">
+        
+        <h2 style="color:var(--primary); font-family:var(--font-code); margin-bottom:5px;">SYSTEM LOGIN</h2>
+        <p style="color:#666; font-size:12px; margin-bottom:20px;">VERIFY IDENTITY</p>
+        
+        <input type="text" id="loginName" class="cyber-input" placeholder="CODENAME" autocomplete="off">
+        <button id="btnLogin" class="cyber-btn">INITIALIZE</button>
+        <div id="loginError" class="login-error">ACCESS DENIED</div>
+    </div>
+  </div>
+
+  <div class="app">
+    <header class="header">
+      <div style="font-family:var(--font-code); font-weight:bold; color:#fff; font-size:14px;">
+        <span class="status-dot"></span> ROOT@RAY-GPT:~#
+      </div>
+      <button onclick="wipeMemory()" style="background:none; border:none; color:#666; cursor:pointer;">
+        [ WIPE ]
+      </button>
+    </header>
+
+    <div class="chat-container" id="chat">
+      <div class="msg bot">
+        <div class="msg-content">
+          <span class="tag-blue">SYSTEM</span> Terminal Ready.<br>
+          <span class="tag-blue">INFO</span> Ray-GPT module loaded.
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="input-group">
+        <textarea id="msgInput" rows="1" placeholder="Enter command..."></textarea>
+        <button id="sendBtn" class="send-btn">➤</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  /* === MATRIX EFFECT === */
+  const cvs = document.getElementById('matrixCanvas');
+  const ctx = cvs.getContext('2d');
+  function resize(){ cvs.width=window.innerWidth; cvs.height=window.innerHeight; }
+  resize(); window.onresize = resize;
+  const cols = Math.floor(cvs.width/14);
+  const drops = Array(cols).fill(1);
+  function draw(){
+      ctx.fillStyle='rgba(0,0,0,0.1)';
+      ctx.fillRect(0,0,cvs.width,cvs.height);
+      ctx.fillStyle='#0f0';
+      ctx.font='14px monospace';
+      for(let i=0;i<drops.length;i++){
+          const t = String.fromCharCode(0x30A0+Math.random()*96);
+          ctx.fillText(t, i*14, drops[i]*14);
+          if(drops[i]*14 > cvs.height && Math.random()>0.975) drops[i]=0;
+          drops[i]++;
+      }
+  }
+  setInterval(draw, 50);
+
+  /* === LOGIC === */
+  const KEY = 'ray_gptt_auth_v2';
+  const UI = {
+      login: document.getElementById('loginWrapper'),
+      name: document.getElementById('loginName'),
+      btn: document.getElementById('btnLogin'),
+      err: document.getElementById('loginError'),
+      chat: document.getElementById('chat'),
+      in: document.getElementById('msgInput'),
+      send: document.getElementById('sendBtn')
+  };
+
+  let state = { name:'', ip:'', sessionId:null };
+
+  async function getIp() {
+      try {
+          const r = await fetch('https://api.ipify.org?format=json');
+          const j = await r.json();
+          return j.ip;
+      } catch { return "OFFLINE_MODE"; }
+  }
+
+  async function init() {
+      const saved = localStorage.getItem(KEY);
+      if(!saved) return;
+
+      try {
+          const sess = JSON.parse(saved);
+          const currentIp = await getIp();
+
+          if(sess.ip !== currentIp && currentIp !== "OFFLINE_MODE") {
+              doLogout("SECURITY ALERT: IP CHANGED");
+              return;
+          }
+
+          state = {...sess, sessionId:null};
+          UI.login.style.display = "none";
+      } catch {
+          doLogout();
+      }
+  }
+  init();
+
+  function doLogout(msg) {
+      localStorage.removeItem(KEY);
+      UI.login.style.display = "flex";
+      UI.login.style.opacity = "1";
+      if(msg){
+          UI.err.style.display = "block";
+          UI.err.textContent = msg;
+      }
+  }
+
+  /* === FILTER === */
+  function filterRayGPT(text) {
+      const hasRay = text.match(/RAY-GPT/i);
+      const hasOthers = text.match(/(Elaina|Mikasa|Shikimori)/i);
+      if(hasRay && hasOthers){
+          const rayIndex = text.toLowerCase().indexOf("ray-gpt");
+          if(rayIndex !== -1){
+              let cutIndex = Math.max(0, rayIndex - 2);
+              return text.substring(cutIndex);
+          }
+      }
+      return text;
+  }
+
+  /* === FORMAT TEXT === */
+  function formatText(text) {
+      if(!text) return "";
+      let out = filterRayGPT(text);
+
+      const codes = [];
+      out = out.replace(/```([\s\S]*?)```/g, (m, code) => {
+          codes.push(code);
+          return `__CODE_${codes.length-1}__`;
+      });
+
+      out = out.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      out = out.replace(/\n/g,"<br>");
+
+      out = out.replace(/__CODE_(\d+)__/g, (m,i)=>{
+          const raw = codes[i];
+          const safe = btoa(unescape(encodeURIComponent(raw)));
+          const display = raw.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+          return `
+          <div class="code-wrapper">
+              <div class="code-header">
+                  <span class="code-lang">CODE</span>
+                  <button class="copy-btn-code" onclick="copyCode(this,'${safe}')">COPY CODE</button>
+              </div>
+              <pre><code>${display}</code></pre>
+          </div>`;
+      });
+
+      return out;
+  }
+
+  /* === COPY === */
+  window.copyCode = function(btn, encoded){
+      try{
+          const text = decodeURIComponent(escape(atob(encoded)));
+          navigator.clipboard.writeText(text)
+              .then(()=>{
+                  showToast("CODE COPIED!");
+                  btn.innerText = "COPIED!";
+                  setTimeout(()=>btn.innerText="COPY CODE",1500);
+              })
+              .catch(()=>fallback(text,btn));
+      } catch {
+          showToast("COPY FAILED");
+      }
+  };
+
+  function fallback(text, btn){
+      const t = document.createElement("textarea");
+      t.value = text;
+      t.style.position="fixed";
+      t.style.left="-9999px";
+      document.body.appendChild(t);
+      t.select();
+      try{
+          document.execCommand("copy");
+          showToast("CODE COPIED!");
+          btn.innerText="COPIED!";
+          setTimeout(()=>btn.innerText="COPY CODE",1500);
+      }catch{
+          showToast("MANUAL COPY REQUIRED");
+      }
+      t.remove();
+  }
+
+  function showToast(msg){
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      setTimeout(()=>t.classList.remove("show"),2000);
+  }
+
+  /* === LOGIN === */
+  UI.btn.onclick = async () => {
+      const n = UI.name.value.trim();
+      if(!n) return;
+
+      UI.btn.innerText = "CONNECTING...";
+      const ip = await getIp();
+
+      state = { name:n, ip:ip, sessionId:null };
+      localStorage.setItem(KEY, JSON.stringify(state));
+
+      setTimeout(()=>{
+          UI.login.style.opacity="0";
+          setTimeout(()=>UI.login.style.display="none",500);
+      },700);
+  };
+
+  /* === SEND MESSAGE === */
+  async function sendMsg(){
+      const txt = UI.in.value.trim();
+      if(!txt) return;
+
+      addMsg(txt,"user");
+      UI.in.value = "";
+
+      const loadId = addMsg("Decrypting Response...", "bot", null, true);
+
+      try{
+          const r = await fetch("/api/chat", {
+              method:"POST",
+              headers:{ "Content-Type":"application/json" },
+              body: JSON.stringify({
+                  ...state,
+                  message: txt
+              })
+          });
+
+          const d = await r.json();
+          document.getElementById(loadId).remove();
+
+          if(d.sessionId) state.sessionId = d.sessionId;
+          addMsg(d.text, "bot", d.image);
+
+      } catch(e){
+          document.getElementById(loadId).innerHTML =
+              "<span style='color:red'>CONNECTION LOST</span>";
+      }
+  }
+
+  /* === ADD MESSAGE === */
+  function addMsg(text, sender, img=null, isLoad=false){
+      const box = document.createElement("div");
+      box.className = `msg ${sender}`;
+
+      if(isLoad) box.id = "load_"+Date.now();
+
+      const c = document.createElement("div");
+      c.className = "msg-content";
+
+      if(sender === "bot") c.innerHTML = formatText(text);
+      else c.innerText = text;
+
+      box.appendChild(c);
+
+      if(img){
+          const im = document.createElement("img");
+          im.src = img;
+          im.style.maxWidth="220px";
+          im.style.border="1px solid #222";
+          im.style.borderRadius="6px";
+          im.style.marginTop="8px";
+          box.appendChild(im);
+      }
+
+      UI.chat.appendChild(box);
+      UI.chat.scrollTop = UI.chat.scrollHeight;
+
+      return box.id;
+  }
+
+  /* === ENTER KEY === */
+  UI.in.addEventListener("keydown", e=>{
+      if(e.key === "Enter" && !e.shiftKey){
+          e.preventDefault();
+          sendMsg();
+      }
+  });
+
+  UI.send.onclick = sendMsg;
+
+  /* === WIPE === */
+  function wipeMemory(){
+      localStorage.removeItem(KEY);
+      location.reload();
+  }
+</script>
+</body>
+</html>
