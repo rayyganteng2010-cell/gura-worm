@@ -163,6 +163,30 @@
     pre { margin: 0; padding: 15px; overflow-x: auto; }
     code { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #eee; }
 
+    /* === REASONING BLOCK === */
+    .reasoning-wrapper {
+        margin: 15px 0;
+        background: rgba(0, 217, 255, 0.05);
+        border: 1px dashed rgba(0, 217, 255, 0.3);
+        border-radius: 6px;
+        padding: 12px;
+        font-family: var(--font-code);
+        font-size: 12px;
+        color: #88ccff;
+    }
+    .reasoning-header {
+        color: var(--accent);
+        font-weight: bold;
+        margin-bottom: 8px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .reasoning-content {
+        white-space: pre-wrap;
+        line-height: 1.4;
+    }
+
     /* === COMPOSER (TEXT ONLY) === */
     .composer {
       padding: 15px; border-top: 1px solid var(--border); background: #0a0a0c;
@@ -181,6 +205,44 @@
       width: 45px; height: 45px; background: var(--primary); border: none;
       border-radius: 4px; display: flex; align-items: center; justify-content: center;
       cursor: pointer;
+    }
+    .send-btn:hover { box-shadow: 0 0 10px var(--primary); }
+    .send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* === LOADING INDICATOR === */
+    .typing-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: typing 1.4s infinite ease-in-out both;
+    }
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes typing {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+
+    /* === ERROR MESSAGE === */
+    .error-msg {
+        background: rgba(255, 0, 60, 0.1);
+        border: 1px dashed var(--secondary);
+        color: var(--secondary);
+        padding: 10px;
+        border-radius: 4px;
+        font-family: var(--font-code);
+        font-size: 12px;
+        margin: 5px 0;
     }
 
     /* TOAST (Notifikasi) */
@@ -219,8 +281,8 @@
       <div style="font-family:var(--font-code); font-weight:bold; color:#fff; font-size:14px;">
         <span class="status-dot"></span> ROOT@RAY-GPT:~#
       </div>
-      <button onclick="wipeMemory()" style="background:none; border:none; color:#666; cursor:pointer;">
-        [ WIPE ]
+      <button onclick="wipeMemory()" style="background:none; border:none; color:#666; cursor:pointer; font-family:var(--font-code);">
+        [ WIPE SESSION ]
       </button>
     </header>
 
@@ -235,8 +297,8 @@
 
     <div class="composer">
       <div class="input-group">
-        <textarea id="msgInput" rows="1" placeholder="Enter command..."></textarea>
-        <button id="sendBtn" class="send-btn">➤</button>
+        <textarea id="msgInput" rows="1" placeholder="Enter command..." autocomplete="off"></textarea>
+        <button id="sendBtn" class="send-btn" title="Send message">➤</button>
       </div>
     </div>
   </div>
@@ -275,49 +337,103 @@
       send: document.getElementById('sendBtn')
   };
 
-  let state = { name:'', ip:'', sessionId:null };
+  let state = { 
+    name: '', 
+    ip: '', 
+    sessionId: null,
+    conversationId: null 
+  };
+  
+  let isSending = false;
 
+  /* === IP DETECTION === */
   async function getIp() {
       try {
-          const r = await fetch('https://api.ipify.org?format=json');
-          const j = await r.json();
-          return j.ip;
-      } catch { return "OFFLINE_MODE"; }
+          const response = await fetch('https://api.ipify.org?format=json');
+          const data = await response.json();
+          console.log('Detected IP:', data.ip);
+          return data.ip;
+      } catch (error) {
+          console.warn('Failed to get IP:', error);
+          // Fallback untuk development
+          return '127.0.0.1';
+      }
   }
 
+  /* === SESSION MANAGEMENT === */
   async function init() {
       const saved = localStorage.getItem(KEY);
-      if(!saved) return;
+      if(!saved) {
+          UI.login.style.display = "flex";
+          return;
+      }
 
       try {
           const sess = JSON.parse(saved);
           const currentIp = await getIp();
 
-          if(sess.ip !== currentIp && currentIp !== "OFFLINE_MODE") {
-              doLogout("SECURITY ALERT: IP CHANGED");
-              return;
-          }
+          state = {
+              name: sess.name,
+              ip: currentIp,
+              sessionId: sess.sessionId,
+              conversationId: sess.conversationId || null
+          };
 
-          state = {...sess, sessionId:null};
-          UI.login.style.display = "none";
-      } catch {
-          doLogout();
+          // Simpan state baru
+          localStorage.setItem(KEY, JSON.stringify(state));
+          
+          UI.login.style.opacity = "0";
+          setTimeout(() => {
+              UI.login.style.display = "none";
+              showWelcomeMessage();
+          }, 500);
+          
+      } catch (error) {
+          console.error('Session init error:', error);
+          doLogout("SESSION CORRUPTED");
       }
   }
-  init();
+  
+  /* === SHOW WELCOME === */
+  function showWelcomeMessage() {
+      const welcomeMsg = `
+      <span class="tag-blue">SYSTEM</span> Welcome back, ${state.name}.<br>
+      <span class="tag-blue">SESSION</span> IP: ${state.ip}<br>
+      ${state.conversationId ? `<span class="tag-blue">CONTEXT</span> Continuing previous conversation.` : ''}
+      `;
+      
+      const existingMsgs = UI.chat.querySelectorAll('.msg.bot');
+      if (existingMsgs.length <= 1) {
+          const msgDiv = document.createElement('div');
+          msgDiv.className = 'msg bot';
+          msgDiv.innerHTML = `
+              <div class="msg-content">${welcomeMsg}</div>
+          `;
+          UI.chat.appendChild(msgDiv);
+          UI.chat.scrollTop = UI.chat.scrollHeight;
+      }
+  }
 
   function doLogout(msg) {
       localStorage.removeItem(KEY);
+      state = { name: '', ip: '', sessionId: null, conversationId: null };
+      isSending = false;
+      
       UI.login.style.display = "flex";
       UI.login.style.opacity = "1";
+      
       if(msg){
           UI.err.style.display = "block";
           UI.err.textContent = msg;
+          setTimeout(() => {
+              UI.err.style.display = "none";
+          }, 3000);
       }
   }
 
-  /* === FILTER === */
+  /* === TEXT FILTER === */
   function filterRayGPT(text) {
+      if (!text) return "";
       const hasRay = text.match(/RAY-GPT/i);
       const hasOthers = text.match(/(Elaina|Mikasa|Shikimori)/i);
       if(hasRay && hasOthers){
@@ -330,7 +446,7 @@
       return text;
   }
 
-  /* === FORMAT TEXT === */
+  /* === TEXT FORMATTER === */
   function formatText(text) {
       if(!text) return "";
       let out = filterRayGPT(text);
@@ -344,7 +460,7 @@
       out = out.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
       out = out.replace(/\n/g,"<br>");
 
-      out = out.replace(/__CODE_(\d+)__/g, (m,i)=>{
+      out = out.replace(/__CODE_(\d+)__/g, (m,i) => {
           const raw = codes[i];
           const safe = btoa(unescape(encodeURIComponent(raw)));
           const display = raw.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -361,7 +477,18 @@
       return out;
   }
 
-  /* === COPY === */
+  /* === REASONING DISPLAY === */
+  function formatReasoning(reasoning) {
+      if (!reasoning || reasoning.trim() === '') return '';
+      return `
+      <div class="reasoning-wrapper">
+          <div class="reasoning-header">THINKING PROCESS</div>
+          <div class="reasoning-content">${reasoning.replace(/\n/g, '<br>')}</div>
+      </div>
+      `;
+  }
+
+  /* === COPY FUNCTIONS === */
   window.copyCode = function(btn, encoded){
       try{
           const text = decodeURIComponent(escape(atob(encoded)));
@@ -371,13 +498,13 @@
                   btn.innerText = "COPIED!";
                   setTimeout(()=>btn.innerText="COPY CODE",1500);
               })
-              .catch(()=>fallback(text,btn));
+              .catch(()=>fallbackCopy(text, btn));
       } catch {
           showToast("COPY FAILED");
       }
   };
 
-  function fallback(text, btn){
+  function fallbackCopy(text, btn){
       const t = document.createElement("textarea");
       t.value = text;
       t.style.position="fixed";
@@ -402,78 +529,168 @@
       setTimeout(()=>t.classList.remove("show"),2000);
   }
 
-  /* === LOGIN === */
+  /* === LOGIN HANDLER === */
   UI.btn.onclick = async () => {
       const n = UI.name.value.trim();
-      if(!n) return;
+      if(!n) {
+          UI.err.style.display = "block";
+          UI.err.textContent = "CODENAME REQUIRED";
+          setTimeout(() => UI.err.style.display = "none", 2000);
+          return;
+      }
 
+      const originalText = UI.btn.innerText;
       UI.btn.innerText = "CONNECTING...";
-      const ip = await getIp();
+      UI.btn.disabled = true;
 
-      state = { name:n, ip:ip, sessionId:null };
-      localStorage.setItem(KEY, JSON.stringify(state));
-
-      setTimeout(()=>{
-          UI.login.style.opacity="0";
-          setTimeout(()=>UI.login.style.display="none",500);
-      },700);
+      try {
+          const ip = await getIp();
+          
+          // Test authentication first
+          const testResponse = await fetch('/api/chat', {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                  name: n,
+                  ip: ip,
+                  message: "test connection"
+              })
+          });
+          
+          if (testResponse.status === 401) {
+              UI.err.style.display = "block";
+              UI.err.textContent = "ACCESS DENIED - CHECK CODENAME/IP";
+          } else if (testResponse.ok) {
+              state = { 
+                  name: n, 
+                  ip: ip, 
+                  sessionId: null, 
+                  conversationId: null 
+              };
+              
+              localStorage.setItem(KEY, JSON.stringify(state));
+              
+              UI.login.style.opacity = "0";
+              setTimeout(() => {
+                  UI.login.style.display = "none";
+                  showWelcomeMessage();
+                  UI.in.focus();
+              }, 500);
+          } else {
+              UI.err.style.display = "block";
+              UI.err.textContent = `SERVER ERROR: ${testResponse.status}`;
+          }
+      } catch (error) {
+          console.error('Login error:', error);
+          UI.err.style.display = "block";
+          UI.err.textContent = "NETWORK ERROR - CHECK CONNECTION";
+      } finally {
+          UI.btn.innerText = originalText;
+          UI.btn.disabled = false;
+          setTimeout(() => UI.err.style.display = "none", 3000);
+      }
   };
 
   /* === SEND MESSAGE === */
   async function sendMsg(){
+      if (isSending) return;
+      
       const txt = UI.in.value.trim();
       if(!txt) return;
 
-      addMsg(txt,"user");
+      isSending = true;
+      UI.send.disabled = true;
+      
+      addMsg(txt, "user");
       UI.in.value = "";
+      
+      const loadingId = "load_" + Date.now();
+      const loadingMsg = addMsg(`
+          <div class="typing-indicator">
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+          </div>
+          <span style="color:#888; margin-left:10px;">Processing...</span>
+      `, "bot", null, loadingId);
 
-      const loadId = addMsg("Decrypting Response...", "bot", null, true);
-
-      try{
-          const r = await fetch("/api/chat", {
-              method:"POST",
-              headers:{ "Content-Type":"application/json" },
+      try {
+          const response = await fetch("/api/chat", {
+              method: "POST",
+              headers: { 
+                  "Content-Type": "application/json",
+                  "Accept": "application/json"
+              },
               body: JSON.stringify({
-                  ...state,
-                  message: txt
+                  name: state.name,
+                  ip: state.ip,
+                  message: txt,
+                  conversationId: state.conversationId
               })
           });
 
-          const d = await r.json();
-          document.getElementById(loadId).remove();
+          const data = await response.json();
+          
+          document.getElementById(loadingId).remove();
+          
+          if (response.status === 401) {
+              addMsg(`<div class="error-msg">${data.error || "Authentication failed"}</div>`, "bot");
+              doLogout("SESSION EXPIRED");
+              return;
+          }
+          
+          if (!response.ok) {
+              throw new Error(data.error || `HTTP ${response.status}`);
+          }
 
-          if(d.sessionId) state.sessionId = d.sessionId;
-          addMsg(d.text, "bot", d.image);
+          if (data.conversationId) {
+              state.conversationId = data.conversationId;
+              localStorage.setItem(KEY, JSON.stringify(state));
+          }
 
-      } catch(e){
-          document.getElementById(loadId).innerHTML =
-              "<span style='color:red'>CONNECTION LOST</span>";
+          let messageContent = formatText(data.text || "No response received");
+          if (data.reasoning) {
+              messageContent += formatReasoning(data.reasoning);
+          }
+          
+          addMsg(messageContent, "bot");
+
+      } catch (error) {
+          console.error('Send error:', error);
+          document.getElementById(loadingId).innerHTML = 
+              `<div class="error-msg">ERROR: ${error.message || 'Connection failed'}</div>`;
+      } finally {
+          isSending = false;
+          UI.send.disabled = false;
+          UI.in.focus();
       }
   }
 
   /* === ADD MESSAGE === */
-  function addMsg(text, sender, img=null, isLoad=false){
+  function addMsg(content, sender, img = null, id = null){
       const box = document.createElement("div");
       box.className = `msg ${sender}`;
+      if (id) box.id = id;
 
-      if(isLoad) box.id = "load_"+Date.now();
+      const contentDiv = document.createElement("div");
+      contentDiv.className = "msg-content";
 
-      const c = document.createElement("div");
-      c.className = "msg-content";
+      if (sender === "bot") {
+          contentDiv.innerHTML = content;
+      } else {
+          contentDiv.textContent = content;
+      }
 
-      if(sender === "bot") c.innerHTML = formatText(text);
-      else c.innerText = text;
+      box.appendChild(contentDiv);
 
-      box.appendChild(c);
-
-      if(img){
-          const im = document.createElement("img");
-          im.src = img;
-          im.style.maxWidth="220px";
-          im.style.border="1px solid #222";
-          im.style.borderRadius="6px";
-          im.style.marginTop="8px";
-          box.appendChild(im);
+      if (img) {
+          const imgElement = document.createElement("img");
+          imgElement.src = img;
+          imgElement.style.maxWidth = "220px";
+          imgElement.style.border = "1px solid #222";
+          imgElement.style.borderRadius = "6px";
+          imgElement.style.marginTop = "8px";
+          box.appendChild(imgElement);
       }
 
       UI.chat.appendChild(box);
@@ -482,21 +699,46 @@
       return box.id;
   }
 
-  /* === ENTER KEY === */
-  UI.in.addEventListener("keydown", e=>{
-      if(e.key === "Enter" && !e.shiftKey){
+  /* === EVENT HANDLERS === */
+  UI.in.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
-          sendMsg();
+          if (!isSending) sendMsg();
       }
+      
+      // Auto-resize textarea
+      if (e.key === "Enter" && e.shiftKey) {
+          setTimeout(() => {
+              UI.in.style.height = 'auto';
+              UI.in.style.height = (UI.in.scrollHeight) + 'px';
+          }, 0);
+      }
+  });
+
+  UI.in.addEventListener("input", () => {
+      UI.in.style.height = 'auto';
+      UI.in.style.height = (UI.in.scrollHeight) + 'px';
   });
 
   UI.send.onclick = sendMsg;
 
-  /* === WIPE === */
+  /* === WIPE SESSION === */
   function wipeMemory(){
-      localStorage.removeItem(KEY);
-      location.reload();
+      if (confirm("Wipe all session data and logout?")) {
+          localStorage.removeItem(KEY);
+          location.reload();
+      }
   }
+
+  /* === INITIALIZE === */
+  document.addEventListener('DOMContentLoaded', init);
+  
+  // Auto-focus on input when app loads
+  setTimeout(() => {
+      if (UI.login.style.display !== 'flex') {
+          UI.in.focus();
+      }
+  }, 1000);
 </script>
 </body>
 </html>
